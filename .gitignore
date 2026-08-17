@@ -1,0 +1,52 @@
+# =========================================================
+# MedBrain_Agent .gitignore
+# =========================================================
+
+# ---------- 环境变量 / 敏感信息 ----------
+# 本地 .env 包含真实数据库/邮件/API 凭据，切勿提交
+.env
+*.env
+# 保留脱敏后的配置模板（密码等已替换为 ***）
+!.env(脱敏)
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ---------- Node.js / 前端 ----------
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.lock
+
+# ---------- 大模型权重（体积大，按需单独下载） ----------
+backend/model/BAAIbge-large-zh-v1.5/
+mcp-server/model/BAAIbge-large-zh-v1.5/
+
+# ---------- 运行时 / 生成物 ----------
+backend/temp_audio.wav
+backend/temp_fixed.wav
+backend/temp_input.webm
+mcp-server/outputs/
+
+# ---------- 按用户要求忽略的文档 ----------
+用药提醒功能技术报告.md
+CLAUDE.md
+
+# ---------- 操作系统 / 编辑器 ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
