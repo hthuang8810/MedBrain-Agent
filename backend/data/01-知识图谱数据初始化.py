@@ -14,7 +14,7 @@ class Neo4jChatBot:
             url=os.getenv("NEO4J_URL"),
             username=os.getenv("NEO4J_USER"),
             password=os.getenv("NEO4J_PASSWORD"),
-            database=os.getenv("NEO4J_DATABASE"),
+            database=os.getenv("NEO4J_DB"),
         )
 
     def _init_sample_data(self):

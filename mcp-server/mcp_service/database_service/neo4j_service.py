@@ -38,7 +38,7 @@ neo4j_pool = Neo4jPool(
     url=os.getenv("NEO4J_URL"),
     user=os.getenv("NEO4J_USER"),
     password=os.getenv("NEO4J_PASSWORD"),
-    database=os.getenv("NEO4J_DATABASE"),
+    database=os.getenv("NEO4J_DB"),
 )
 
 class Neo4jArgs(BaseModel):
