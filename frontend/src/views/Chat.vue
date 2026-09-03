@@ -6,6 +6,7 @@
       :active-id="activeChatId"
       @new-chat="newChat"
       @select-chat="selectChat"
+      @delete-chat="deleteChat"
     />
 
     <!-- 右侧聊天区 -->
@@ -70,7 +71,7 @@
 
 <script setup>
 import { reactive, ref, computed, nextTick, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
@@ -96,6 +97,34 @@ function newChat() {
 
 function selectChat(id) {
   activeChatId.value = id
+}
+
+async function deleteChat(id) {
+  const chat = chatList.value.find(c => c.id === id)
+  if (!chat) return
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除对话“${chat.title}”吗？删除后不可恢复。`,
+      '删除对话',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return // 用户取消
+  }
+
+  const idx = chatList.value.findIndex(c => c.id === id)
+  if (idx === -1) return
+  chatList.value.splice(idx, 1)
+
+  // 删除的是当前会话，则切到另一个会话；若已无会话则新建一个
+  if (activeChatId.value === id) {
+    if (chatList.value.length === 0) {
+      newChat()
+    } else {
+      activeChatId.value = chatList.value[0].id
+    }
+  }
 }
 
 // ---- 消息发送 ----

@@ -40,6 +40,11 @@
       >
         <el-icon class="chat-icon"><ChatDotRound /></el-icon>
         <span class="chat-title">{{ chat.title }}</span>
+        <span class="chat-actions" @click.stop>
+          <el-icon class="delete-btn" @click="$emit('deleteChat', chat.id)">
+            <Delete />
+          </el-icon>
+        </span>
       </div>
     </div>
 
@@ -59,14 +64,14 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, ChatDotRound, User, SwitchButton, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, ChatDotRound, User, SwitchButton, ArrowDown, Delete } from '@element-plus/icons-vue'
 
 const props = defineProps({
   chatList: { type: Array, required: true },
   activeId: { type: String, required: true },
 })
 
-defineEmits(['newChat', 'selectChat'])
+defineEmits(['newChat', 'selectChat', 'deleteChat'])
 
 const router = useRouter()
 
@@ -250,9 +255,36 @@ function handleLogout() {
 }
 
 .chat-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chat-actions {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.delete-btn {
+  display: none;
+  font-size: 22px;
+  color: #98a1ac;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.chat-item:hover .delete-btn {
+  display: inline-flex;
+}
+
+.delete-btn:hover {
+  color: #e25555;
+  background: #fdecec;
 }
 
 .sidebar-bottom {
