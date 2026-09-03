@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import json
 import soundfile as sf
@@ -195,6 +196,24 @@ def code_verify(args: CodeVerifyArgs):
 
 # 语音识别
 VOSK_MODEL = MyModel.get_vosk_model()  # 加载一次模型
+
+# 解析 ffmpeg 可执行文件路径：优先系统 PATH，其次 imageio-ffmpeg 自带的静态二进制
+def resolve_ffmpeg():
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+# 全局解析一次；若两种来源都不可用，给出明确提示
+FFMPEG_EXE = resolve_ffmpeg()
+if not FFMPEG_EXE:
+    print(" 警告：未找到 ffmpeg，语音识别功能不可用，请安装 ffmpeg 或 pip install imageio-ffmpeg")
+
 @app.post("/speech_to_text")
 async def speech_to_text(file: UploadFile = File(...)):
     try:
@@ -206,8 +225,11 @@ async def speech_to_text(file: UploadFile = File(...)):
             f.write(await file.read())
 
         # === Step 2. 使用 ffmpeg 转换为 16kHz 单声道 wav ===
+        ffmpeg = FFMPEG_EXE or resolve_ffmpeg()
+        if not ffmpeg:
+            return {"code": 500, "msg": "服务器缺少 ffmpeg，无法进行语音识别"}
         subprocess.run([
-            "ffmpeg", "-y", "-i", input_path,
+            ffmpeg, "-y", "-i", input_path,
             "-ac", "1", "-ar", "16000",
             output_path
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
