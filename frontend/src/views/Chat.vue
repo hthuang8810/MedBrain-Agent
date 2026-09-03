@@ -12,7 +12,20 @@
     <div class="chat-main-area">
       <!-- 顶栏 -->
       <header class="chat-topbar">
-        <h2>{{ currentChat.title || '新对话' }}</h2>
+        <div class="topbar-left">
+          <span class="topbar-logo">
+            <svg width="32" height="32" viewBox="0 0 40 40" aria-hidden="true">
+              <rect x="2" y="2" width="36" height="36" rx="11" fill="#5b6ce0" />
+              <path d="M20 13v14M13 20h14" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+              <circle cx="32" cy="9" r="4.5" fill="#a7b2f2" />
+            </svg>
+          </span>
+          <div class="topbar-titles">
+            <h2>智能问诊</h2>
+            <p>专业医疗建议，仅供参考</p>
+          </div>
+        </div>
+        <el-icon class="topbar-bell"><Bell /></el-icon>
       </header>
 
       <!-- 消息列表 -->
@@ -58,6 +71,7 @@
 <script setup>
 import { reactive, ref, computed, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Bell } from '@element-plus/icons-vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -222,6 +236,7 @@ onMounted(() => {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: #f2f4f6;
 }
 
 .chat-main-area {
@@ -229,29 +244,55 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--chat-bg);
+  background: #fafbfc;
+  border-left: 1px solid #eef1f4;
 }
 
 .chat-topbar {
-  height: 52px;
+  height: 68px;
   padding: 0 24px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background: #fff;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #eef1f4;
   flex-shrink: 0;
 }
 
-.chat-topbar h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.topbar-logo {
+  display: inline-flex;
+}
+
+.topbar-titles h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #273446;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.topbar-titles p {
+  font-size: 12px;
+  color: #9aa3ad;
+  margin-top: 3px;
+}
+
+.topbar-bell {
+  font-size: 22px;
+  color: #6b7280;
+  cursor: pointer;
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 28px 32px;
 }
 
 /* 空状态 */
@@ -279,20 +320,16 @@ onMounted(() => {
 
 .empty-state p {
   font-size: 14px;
-  max-width: 360px;
+  max-width: 400px;
   line-height: 1.6;
-}
-
-/* 错误提示 */
-.error-msg {
-  margin: 12px 0;
 }
 
 /* 工具调用状态 */
 .tool-status {
-  color: var(--text-secondary);
+  color: #6b7280;
   font-size: 13px;
   padding: 4px 0;
   margin-left: 4px;
+  text-align: center;
 }
 </style>

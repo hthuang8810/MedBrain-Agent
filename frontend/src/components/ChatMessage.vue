@@ -1,9 +1,8 @@
 <template>
   <div class="chat-message" :class="message.role">
-    <!-- 头像 -->
-    <div class="avatar" :class="message.role">
-      <template v-if="message.role === 'user'">U</template>
-      <template v-else>🏥</template>
+    <!-- AI 头像 -->
+    <div v-if="message.role === 'assistant'" class="avatar assistant">
+      🤖
     </div>
 
     <!-- 气泡 -->
@@ -42,63 +41,57 @@ const renderedContent = computed(() => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin: 16px 0;
+  margin: 20px 0;
 }
 
 .chat-message.user {
-  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
-/* 头像 */
+/* AI 头像 */
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 20px;
   flex-shrink: 0;
-  color: #fff;
-}
-
-.avatar.user {
-  background: var(--avatar-user);
 }
 
 .avatar.assistant {
-  background: var(--avatar-ai);
-  font-size: 18px;
+  background: #eef1f4;
 }
 
 /* 气泡 */
 .bubble-wrap {
-  max-width: calc(100% - 60px);
+  max-width: 72%;
 }
 
 .bubble {
   display: inline-block;
-  padding: 10px 18px;
-  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  border-radius: 16px;
   word-break: break-word;
   white-space: pre-wrap;
   line-height: 1.6;
   font-size: 15px;
 }
 
+/* 用户气泡（浅绿色，右对齐） */
 .user .bubble {
-  background: var(--user-bubble);
-  color: var(--text-on-primary);
-  border-bottom-right-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
+  background: #e9f6ef;
+  color: #238a5f;
+  border-bottom-right-radius: 4px;
 }
 
+/* AI 气泡（白色，左对齐） */
 .assistant .bubble {
-  background: var(--ai-bubble);
-  color: var(--text-primary);
-  border: 1px solid var(--ai-bubble-border);
-  border-bottom-left-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
+  background: #ffffff;
+  color: #2f3a48;
+  border: 1px solid #eef1f4;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 </style>

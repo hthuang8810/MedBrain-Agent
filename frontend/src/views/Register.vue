@@ -49,7 +49,7 @@
         </div>
       </div>
 
-      <!-- 右侧登录卡片 -->
+      <!-- 右侧注册卡片 -->
       <div class="auth-right">
         <div class="auth-card">
           <div class="card-header">
@@ -64,36 +64,20 @@
             <p class="card-sub">医疗健康智能助手</p>
           </div>
 
-          <!-- 登录方式切换 -->
           <div class="seg">
-            <div
-              class="seg-item"
-              :class="{ active: activeTab === 'password' }"
-              @click="activeTab = 'password'"
-            >
-              密码登录
-            </div>
-            <div
-              class="seg-item"
-              :class="{ active: activeTab === 'email' }"
-              @click="activeTab = 'email'"
-            >
-              邮箱验证码登录
-            </div>
+            <div class="seg-item active">创建账号</div>
           </div>
 
-          <!-- 密码登录 -->
           <el-form
-            v-if="activeTab === 'password'"
-            ref="passwordFormRef"
-            :model="passwordForm"
-            :rules="passwordRules"
+            ref="registerFormRef"
+            :model="registerForm"
+            :rules="registerRules"
             label-position="top"
             @submit.prevent
           >
             <el-form-item prop="userName">
               <el-input
-                v-model="passwordForm.userName"
+                v-model="registerForm.userName"
                 placeholder="请输入用户名"
                 size="large"
               >
@@ -102,73 +86,48 @@
             </el-form-item>
             <el-form-item prop="password">
               <el-input
-                v-model="passwordForm.password"
+                v-model="registerForm.password"
                 type="password"
                 placeholder="请输入密码"
                 size="large"
                 show-password
-                @keyup.enter="handlePasswordLogin"
               >
                 <template #prefix><el-icon><Lock /></el-icon></template>
               </el-input>
             </el-form-item>
-            <el-button
-              class="primary-btn"
-              :loading="passwordLoading"
-              @click="handlePasswordLogin"
-            >
-              {{ passwordLoading ? '登录中...' : '登  录' }}
-            </el-button>
-          </el-form>
-
-          <!-- 邮箱验证码登录 -->
-          <el-form
-            v-else
-            ref="emailFormRef"
-            :model="emailForm"
-            :rules="emailRules"
-            label-position="top"
-            @submit.prevent
-          >
+            <el-form-item prop="confirmPassword">
+              <el-input
+                v-model="registerForm.confirmPassword"
+                type="password"
+                placeholder="请再次输入密码"
+                size="large"
+                show-password
+                @keyup.enter="handleRegister"
+              >
+                <template #prefix><el-icon><Lock /></el-icon></template>
+              </el-input>
+            </el-form-item>
             <el-form-item prop="email">
               <el-input
-                v-model="emailForm.email"
-                placeholder="请输入邮箱地址"
+                v-model="registerForm.email"
+                placeholder="邮箱（选填）"
                 size="large"
               >
                 <template #prefix><el-icon><Message /></el-icon></template>
               </el-input>
             </el-form-item>
-            <el-form-item prop="code">
-              <div class="code-row">
-                <el-button
-                  class="code-btn"
-                  :loading="sendCodeLoading"
-                  :disabled="codeCooldown > 0"
-                  @click="handleSendCode"
-                >
-                  {{ codeCooldown > 0 ? `${codeCooldown}s` : '获取验证码' }}
-                </el-button>
-                <el-input
-                  v-model="emailForm.code"
-                  placeholder="验证码"
-                  size="large"
-                  @keyup.enter="handleEmailLogin"
-                />
-              </div>
-            </el-form-item>
             <el-button
               class="primary-btn"
-              :loading="emailLoading"
-              @click="handleEmailLogin"
+              :loading="registerLoading"
+              @click="handleRegister"
             >
-              {{ emailLoading ? '登录中...' : '登  录' }}
+              {{ registerLoading ? '注册中...' : '注  册' }}
             </el-button>
           </el-form>
 
           <div class="card-foot">
-            还没有账号？
-            <router-link class="link" to="/register">注册账号</router-link>
+            已有账号？
+            <router-link class="link" to="/">登录</router-link>
           </div>
         </div>
       </div>
@@ -177,121 +136,70 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Message, ChatDotRound, FirstAidKit } from '@element-plus/icons-vue'
-import { login, sendCode, codeVerify } from '@/api'
+import { register } from '@/api'
 
 const router = useRouter()
 
-// ---- Tab 切换 ----
-const activeTab = ref('password')
-
-// ---- 密码登录 ----
-const passwordFormRef = ref()
-const passwordLoading = ref(false)
-const passwordForm = ref({
+const registerFormRef = ref()
+const registerLoading = ref(false)
+const registerForm = ref({
   userName: '',
   password: '',
-})
-const passwordRules = {
-  userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-}
-
-async function handlePasswordLogin() {
-  const valid = await passwordFormRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  passwordLoading.value = true
-  try {
-    const { data } = await login(passwordForm.value.userName, passwordForm.value.password)
-    if (data.code === 200) {
-      localStorage.setItem('userId', String(data.data))
-      ElMessage.success('登录成功')
-      router.push('/chat')
-    } else {
-      ElMessage.error(data.data || '登录失败')
-    }
-  } catch (err) {
-    ElMessage.error('网络错误：' + err.message)
-  } finally {
-    passwordLoading.value = false
-  }
-}
-
-// ---- 邮箱登录 ----
-const emailFormRef = ref()
-const emailLoading = ref(false)
-const sendCodeLoading = ref(false)
-const codeCooldown = ref(0)
-let cooldownTimer = null
-
-const emailForm = ref({
+  confirmPassword: '',
   email: '',
-  code: '',
 })
-const emailRules = {
+const registerRules = {
+  userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少6位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== registerForm.value.password) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
   ],
-  code: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
 }
 
-async function handleSendCode() {
-  if (!emailForm.value.email) {
-    ElMessage.warning('请先输入邮箱')
-    return
-  }
-
-  sendCodeLoading.value = true
-  try {
-    const { data } = await sendCode(emailForm.value.email)
-    if (data.code === 200) {
-      ElMessage.success('验证码已发送')
-      // 60 秒冷却
-      codeCooldown.value = 60
-      cooldownTimer = setInterval(() => {
-        codeCooldown.value--
-        if (codeCooldown.value <= 0) clearInterval(cooldownTimer)
-      }, 1000)
-    } else {
-      ElMessage.error(data.data || '发送失败')
-    }
-  } catch (err) {
-    ElMessage.error('网络错误：' + err.message)
-  } finally {
-    sendCodeLoading.value = false
-  }
-}
-
-async function handleEmailLogin() {
-  const valid = await emailFormRef.value?.validate().catch(() => false)
+async function handleRegister() {
+  const valid = await registerFormRef.value?.validate().catch(() => false)
   if (!valid) return
 
-  emailLoading.value = true
+  registerLoading.value = true
   try {
-    const { data } = await codeVerify(emailForm.value.email, emailForm.value.code)
+    const { data } = await register(
+      registerForm.value.userName,
+      registerForm.value.password,
+      registerForm.value.email,
+    )
     if (data.code === 200) {
-      // 邮箱登录成功 — 用邮箱作为临时 userId 存入 localStorage
-      localStorage.setItem('userId', emailForm.value.email)
-      ElMessage.success('登录成功')
+      localStorage.setItem('userId', String(data.data))
+      ElMessage.success('注册成功')
       router.push('/chat')
     } else {
-      ElMessage.error(data.data || '验证失败')
+      ElMessage.error(data.data || '注册失败')
     }
   } catch (err) {
     ElMessage.error('网络错误：' + err.message)
   } finally {
-    emailLoading.value = false
+    registerLoading.value = false
   }
 }
-
-onUnmounted(() => {
-  if (cooldownTimer) clearInterval(cooldownTimer)
-})
 </script>
 
 <style scoped>
@@ -457,7 +365,6 @@ onUnmounted(() => {
 .seg {
   display: flex;
   justify-content: center;
-  gap: 28px;
   border-bottom: 1px solid #eef1f4;
   margin-bottom: 26px;
 }
@@ -526,38 +433,6 @@ onUnmounted(() => {
   color: #fff;
 }
 
-/* 验证码行 */
-.code-row {
-  display: flex;
-  gap: 12px;
-  width: 100%;
-}
-.code-row .el-input {
-  flex: 1;
-}
-.code-btn {
-  flex-shrink: 0;
-  width: 132px;
-  height: 46px;
-  margin: 0;
-  border-radius: 10px;
-  background: #f3f6f8;
-  border: 1px solid #e8edf0;
-  color: #4a5568;
-  font-weight: 500;
-}
-.code-btn:hover,
-.code-btn:focus {
-  background: #eaf0f4;
-  border-color: #dfe7ec;
-  color: #2d3748;
-}
-.code-btn.is-disabled {
-  background: #f3f6f8;
-  border-color: #e8edf0;
-  color: #a5aeba;
-}
-
 .card-foot {
   margin-top: 26px;
   text-align: center;
@@ -585,10 +460,6 @@ onUnmounted(() => {
   }
   .brand {
     margin-bottom: 24px;
-  }
-  .authent-card {
-    width: 100%;
-    max-width: 420px;
   }
   .auth-card {
     width: 100%;
