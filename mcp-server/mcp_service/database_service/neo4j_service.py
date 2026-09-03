@@ -31,6 +31,7 @@ class Neo4jPool:
     def close(self):
          if self._driver is not None:
              self._driver.close()
+             self._driver = None  # 关闭后置空,方便下次重新创建
 
 #创建一个neo4j连接池
 neo4j_pool = Neo4jPool(
@@ -48,7 +49,7 @@ def neo4j_tool_pool(query:str)->str:
      执行cypher语句
     """
     try:
-         #获取驱动
+         #获取驱动(懒加载单例,长生命周期;切不可在每次查询后 close,否则第二次起全是已关闭的驱动)
          driver = neo4j_pool.create_driver()
          #创建一个会话
          with driver.session(database=neo4j_pool.database) as session:
@@ -60,8 +61,6 @@ def neo4j_tool_pool(query:str)->str:
     except Exception as e:
         print("异常错误",e)
         return "cypher执行失败"
-    finally:
-        neo4j_pool.close()
 
 if __name__ == '__main__':
     result = neo4j_tool_pool.invoke({

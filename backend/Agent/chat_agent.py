@@ -5,15 +5,15 @@ from tool.neo4j_tool_pool import neo4j_tool_pool
 from tool.faiss_tool import faiss_tool
 from tool.doc_tool_api import doc_tool_pool
 from tool.amap_tool import map_tool
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
+from langchain_classic.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from utils.inMemoryHistory_redis import get_session_history
 import hashlib
 import redis
 
 # 连接redis
-client = redis.Redis(host='localhost', port=6379, db=0)
+client = redis.Redis(host='localhost', port=6379, db=0, protocol=2)  # protocol=2: 兼容 Redis<6,避免 HELLO 命令
 
 class ChatAgent:
     # 创建一个智能体对象
@@ -160,10 +160,14 @@ class ChatAgent:
             history_key="history",
         )
         return history
+    def get_agent(self):
+        """返回 RunnableWithMessageHistory 实例，供流式调用"""
+        return self._agent
+
     # 对话函数
     def speak(self, question: str, session_id):
         # 定义一个会话存储器
-        config = {"configurable": {"session_id": "userA"}}
+        config = {"configurable": {"session_id": session_id if session_id else "userA"}}
         rst = self._agent.invoke({"input": question}, config)
         return rst.get("output")
 

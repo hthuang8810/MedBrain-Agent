@@ -31,6 +31,7 @@ yarn-error.log*
 
 # ---------- 大模型权重（体积大，按需单独下载） ----------
 backend/model/BAAIbge-large-zh-v1.5/
+mcp-server/mcp_service/model/BAAIbge-large-zh-v1.5/
 mcp-server/model/BAAIbge-large-zh-v1.5/
 
 # ---------- 运行时 / 生成物 ----------

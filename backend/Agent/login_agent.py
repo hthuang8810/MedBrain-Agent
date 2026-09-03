@@ -1,6 +1,6 @@
 from concurrent.futures.thread import ThreadPoolExecutor
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
+from langchain_classic.prompts import ChatPromptTemplate, MessagesPlaceholder
 from tool.sql_tool_pool import sql_tool_pool
 from tool.email_tool import send_email_tool
 from model.model_management import MyModel

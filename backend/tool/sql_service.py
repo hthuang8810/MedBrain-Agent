@@ -22,17 +22,34 @@ def sql_tool_pool(query: str, params: tuple = None)->str:
     """
     MySQL数据库查询
     """
-    conn = pool.get_connection()  # 获取连接
-    cursor = conn.cursor()  # 创建游标
+    conn = None
+    cursor = None
     try:
+        conn = pool.get_connection()  # 获取连接
+        cursor = conn.cursor()  # 创建游标
         cursor.execute(query, params)  # 执行SQL语句
-        rs = cursor.fetchall()  # 获取结果
-        return rs
+        # SELECT 有结果集：先 fetchall 消费完结果再返回（绝不能先 commit）
+        if cursor.description is not None:
+            rs = cursor.fetchall()  # 获取结果
+            return rs
+        # INSERT/UPDATE/DELETE 无结果集：此时才需要提交事务
+        conn.commit()
+        return []
     except Exception as e:
         print("异常错误", e)
         return "sql执行失败"
     finally:
-        conn.close()
+        # 先关游标再还连接，且 close 失败不再向外抛出，避免二次异常
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception as e:
+                print("异常错误", e)
 
 if __name__ == '__main__':
     userName = "sql01"

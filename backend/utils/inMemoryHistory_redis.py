@@ -4,7 +4,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 import redis
 import json
 # 连接本地 Redis（默认端口 6379）
-client = redis.StrictRedis(host='localhost', port=6379, db=0)
+client = redis.StrictRedis(host='localhost', port=6379, db=0, protocol=2)  # protocol=2: 兼容 Redis<6,避免 HELLO 命令
 
 # 自己实现一个最简单的内存消息历史
 class RedisChatHistory(BaseChatMessageHistory):
