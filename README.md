@@ -87,7 +87,7 @@ MedBrain_Agent/
 ```bash
 cd backend/data
 python 01-知识图谱数据初始化.py     # 填充 Neo4j 知识图谱
-# 02-mysql数据初始化 为 MySQL 建库建表脚本，在 MySQL 中执行
+# 02-mysql数据初始化.sql 为 MySQL 建库建表脚本，在 MySQL 中执行
 ```
 
 ### 2. 启动 MCP 服务

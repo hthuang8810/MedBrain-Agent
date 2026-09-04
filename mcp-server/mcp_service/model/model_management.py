@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
 import os
 
-from sympy.integrals.risch import recognize_derivative
-
 # 加载环境变量
 load_dotenv()
 

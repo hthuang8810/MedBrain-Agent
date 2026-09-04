@@ -8,9 +8,9 @@ from fastapi.responses import StreamingResponse
 import uvicorn
 from vosk import KaldiRecognizer
 from model.model_management import MyModel
-from Agent.chat_agent import ChatAgent, more_speak
+from Agent.chat_agent import ChatAgent
 from Agent.login_agent import more_speak_login
-from Agent.chat_agent_patient import ChatAgentPatient, more_speak_patient
+from Agent.chat_agent_patient import ChatAgentPatient
 from tool.sql_service import sql_tool_pool, pool as mysql_pool
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
