@@ -1,5 +1,3 @@
-import asyncio
-import threading
 from fastmcp import FastMCP
 from email_service.email_service import send_email_tool
 from database_service.neo4j_service import neo4j_tool_pool
@@ -86,31 +84,7 @@ def generate_word_tool(content: str, title: str = "医疗报告",doc_type: str =
     else:
         return f"未知的文档类型: {doc_type}"
 
-def start_scheduler():
-    """
-    在独立线程中启动用药提醒调度器
-    """
-    from medication_service.medication_scheduler import scheduler_loop
-
-    def run_async_loop():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(scheduler_loop())
-        except KeyboardInterrupt:
-            print("调度器已停止")
-        finally:
-            loop.close()
-
-    # 创建守护线程启动调度器
-    scheduler_thread = threading.Thread(target=run_async_loop, daemon=True)
-    scheduler_thread.start()
-    print("✓ 用药提醒调度器已在后台启动")
-
 if __name__ == '__main__':
-    # 启动调度器
-    start_scheduler()
-
     # 启动MCP服务器
     print("正在启动 MCP 服务器...")
     mcp.run(

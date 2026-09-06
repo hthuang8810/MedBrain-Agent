@@ -1,11 +1,10 @@
 # MedBrain_Agent 医疗健康智能助手
 
-MedBrain_Agent 是一个医疗健康领域的 AI 智能助手，采用**三服务架构**：Vue.js 前端、FastAPI 后端（LangChain 智能体）与 FastMCP 工具服务。通过聊天交互，为用户提供**医疗问诊咨询、用药提醒、健康管理**等一站式服务。
+MedBrain_Agent 是一个医疗健康领域的 AI 智能助手，采用**三服务架构**：Vue.js 前端、FastAPI 后端（LangChain 智能体）与 FastMCP 工具服务。通过聊天交互，为用户提供**医疗问诊咨询、健康管理**等一站式服务。
 
 ## 功能特性
 
 - 🩺 **智能医疗问诊**：基于 LangChain Agent 路由分发，结合 MySQL 病历数据、Neo4j 医疗知识图谱、FAISS 向量检索（RAG）进行医疗问答。
-- 💊 **用药提醒**：后台定时调度（60s 周期）检测服药时间，通过邮件自动发送用药提醒通知。
 - 🎤 **语音识别**：基于 Vosk 的中文语音转文字（STT），支持语音输入问诊。
 - 📧 **邮箱注册 / 登录**：支持邮箱验证码注册、登录流程，并可按邮箱检索患者个人信息。
 - 📄 **医疗报告生成**：自动生成医疗报告 Word 文档。
@@ -29,7 +28,7 @@ Vue.js 前端 (8080) → FastAPI 后端 (8000) → MCP 服务 (8008)
 | --- | --- |
 | **前端** `frontend/` | Vue 3 + Element Plus + Vite SPA，路由：`/`（登录）、`/register`（注册）、`/chat`（聊天，需鉴权） |
 | **后端** `backend/` | FastAPI 服务，承载三个 LangChain Agent，负责请求路由分发与业务编排 |
-| **MCP 服务** `mcp-server/` | FastMCP 工具服务，通过 SSE 暴露数据库、邮件、RAG、定位、文档、用药提醒等工具 |
+| **MCP 服务** `mcp-server/` | FastMCP 工具服务，通过 SSE 暴露数据库、邮件、RAG、定位、文档等工具 |
 
 ## Agent 路由
 
@@ -59,7 +58,6 @@ MedBrain_Agent/
 │       ├── email_service/      # 邮件服务
 │       ├── file_service/       # 文档生成工具
 │       ├── hello_service/      # 示例服务
-│       ├── medication_service/ # 用药提醒定时调度器
 │       ├── RAG_service/        # 向量检索（RAG）
 │       └── server.py           # MCP 服务入口（端口 8008，HTTP/SSE）
 ├── frontend/                   # Vue 3 + Element Plus + Vite 前端
@@ -133,7 +131,7 @@ npm run build                     # 生产构建
 
 | 服务 | 库名 | 说明 |
 | --- | --- | --- |
-| MySQL | `medbrain_agent` | 用户、患者、医生、病历、药品、处方、用药提醒等表 |
+| MySQL | `medbrain_agent` | 用户、患者、医生、病历、药品、处方等表 |
 | Neo4j | `medbrain-graph` | 医生、患者、医院等节点及诊疗 / 工作 / 用药 / 转诊等关系 |
 
 > Neo4j 库名（`medbrain-graph`）含连字符，在创建 / 删除该库时需使用反引号包裹：`CREATE DATABASE \`medbrain-graph\``。
