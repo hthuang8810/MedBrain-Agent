@@ -1,20 +1,33 @@
-from typing import List, Dict
+import json
+from typing import List
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-import redis
-import json
-# 连接本地 Redis（默认端口 6379）
-client = redis.StrictRedis(host='localhost', port=6379, db=0, protocol=2)  # protocol=2: 兼容 Redis<6,避免 HELLO 命令
+
+from utils.redis_client import client
+
+# 会话历史的保留时长与条数。
+# max_history 取偶数：按轮次（Human + AI）成对保留，避免截断出孤儿 AIMessage 打头。
+SESSION_TTL = 7 * 24 * 3600
+MAX_HISTORY = 6
+
+# 加前缀与 main.py 里裸邮箱的验证码键区分开，避免键空间混在一起
+_KEY_PREFIX = "chat:history:"
+
 
 # 自己实现一个最简单的内存消息历史
 class RedisChatHistory(BaseChatMessageHistory):
-    def __init__(self, session_id: str, max_history: int = 5):
+    def __init__(self, session_id: str, max_history: int = MAX_HISTORY):
         self.session_id = session_id
         self.max_history = max_history  # 最大历史消息数量
+
+    @property
+    def _key(self) -> str:
+        return f"{_KEY_PREFIX}{self.session_id}"
+
     @property
     def messages(self) -> List[BaseMessage]:
         """从 Redis 获取消息并反序列化"""
-        history_json = client.get(self.session_id)  # 从 Redis 获取历史消息
+        history_json = client.get(self._key)  # 从 Redis 获取历史消息
         if history_json:
             messages_dict = json.loads(history_json)  # 将 JSON 字符串反序列化为字典
             return [self._deserialize_message(msg) for msg in messages_dict]  # 反序列化为消息对象
@@ -27,19 +40,19 @@ class RedisChatHistory(BaseChatMessageHistory):
         if len(current_history) > self.max_history:
             current_history = current_history[-self.max_history:]  # 如果超过最大历史数，丢弃最早的消息
 
-        # 序列化消息并存储到 Redis
+        # 序列化消息并存储到 Redis；带 TTL，否则每个会话都会永久驻留
         serialized_messages = [self._serialize_message(msg) for msg in current_history]
-        client.set(self.session_id, json.dumps(serialized_messages))  # 存储到 Redis 中
+        client.set(self._key, json.dumps(serialized_messages), ex=SESSION_TTL)
 
     def clear(self) -> None:
         """清空 Redis 中的历史记录"""
-        client.delete(self.session_id)
+        client.delete(self._key)
 
     def _serialize_message(self, message: BaseMessage) -> dict:
         """将消息对象序列化为字典"""
         return {
             "type": message.__class__.__name__,  # 获取消息类型（HumanMessage 或 AIMessage）
-            "content": message.content,  # 获取消息内容
+            "content": message.content,
             "metadata": message.metadata if hasattr(message, "metadata") else None,  # 获取消息的元数据
         }
 
@@ -53,9 +66,10 @@ class RedisChatHistory(BaseChatMessageHistory):
         else:
             raise ValueError(f"Unsupported message type: {message_type}")
 
-# 会话存储器
-_store: Dict[str, RedisChatHistory] = {}
+
+# 会话存储器。
+# 不再缓存实例：RedisChatHistory 除了 session_id 外没有任何状态，messages 每次都从
+# Redis 重读，而 RunnableWithMessageHistory._merge_configs 每次 run 都会重新调用本函数。
+# 原先的 _store 字典只会随会话数无限增长。
 def get_session_history(session_id: str) -> RedisChatHistory:
-    if session_id not in _store:
-        _store[session_id] = RedisChatHistory(session_id=session_id)
-    return _store[session_id]
+    return RedisChatHistory(session_id=session_id)

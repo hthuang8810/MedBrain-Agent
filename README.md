@@ -138,7 +138,7 @@ npm run build                     # 生产构建
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | POST | `/login` | 用户名/密码登录 |
-| POST | `/chat` | 与医疗 Agent 聊天（`{message, session_id}`） |
+| POST | `/chat` | 与医疗 Agent 聊天（`{questions, sessionId}`，SSE 流式返回） |
 | POST | `/send_code` | 发送邮箱验证码 |
 | POST | `/code_verify` | 校验邮箱验证码 |
 | POST | `/speech_to_text` | 语音文件转文字（multipart form） |

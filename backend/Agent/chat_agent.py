@@ -1,4 +1,3 @@
-from concurrent.futures.thread import ThreadPoolExecutor
 from model.model_management import MyModel
 from tool.sql_tool_pool import sql_tool_pool
 from tool.neo4j_tool_pool import neo4j_tool_pool
@@ -10,11 +9,6 @@ from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_classic.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from utils.inMemoryHistory_redis import get_session_history
-import hashlib
-import redis
-
-# 连接redis
-client = redis.Redis(host='localhost', port=6379, db=0, protocol=2)  # protocol=2: 兼容 Redis<6,避免 HELLO 命令
 
 class ChatAgent:
     # 创建一个智能体对象
@@ -143,6 +137,8 @@ class ChatAgent:
              注意: 如果Neo4j查询返回警告说标签不存在，说明图数据库中没有相应数据，请使用SQL工具。
              
             """),
+            # 会话历史注入点：由 RunnableWithMessageHistory 填充 history_messages_key="history"
+            MessagesPlaceholder(variable_name="history"),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
@@ -164,41 +160,9 @@ class ChatAgent:
             get_session_history,
             input_messages_key="input",
             output_messages_key="output",
-            history_key="history",
+            history_messages_key="history",
         )
         return history
     def get_agent(self):
         """返回 RunnableWithMessageHistory 实例，供流式调用"""
         return self._agent
-
-    # 对话函数
-    def speak(self, question: str, session_id):
-        # 定义一个会话存储器
-        config = {"configurable": {"session_id": session_id if session_id else "userA"}}
-        rst = self._agent.invoke({"input": question}, config)
-        return rst.get("output")
-
-    # 缓存函数
-    def cache_speak(self, question: str, session_id):
-        # 定义一个key, 保证每个问题的唯一性
-        key = hashlib.sha256(question.encode()).hexdigest()
-        # 判断缓存是否有问题
-        rs = client.get(key)
-        if rs is None:
-            print("缓存未命中")
-            # 查询大模型
-            rs = self.speak(question, session_id)
-            # 缓存结果
-            client.set(key, rs, ex=120)
-            return rs
-        # 缓存命中
-        print("缓存命中")
-        return rs.decode()
-
-def more_speak(questions: list, session_ids):
-    agent = ChatAgent()
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        rs = list(executor.map(agent.cache_speak, questions, session_ids))
-        return rs
-if __name__ == '__main__':
-    more_speak(["生成一份张丽华的pdf病例报告"], ["userA"])

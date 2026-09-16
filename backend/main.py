@@ -1,26 +1,27 @@
-import os
 import shutil
 import subprocess
 import json
+import asyncio
+from collections import defaultdict
 import soundfile as sf
 from fastapi import FastAPI, UploadFile, File, Depends
 from fastapi.responses import StreamingResponse
 import uvicorn
 from vosk import KaldiRecognizer
+from langchain_core.messages import HumanMessage, AIMessage
 from model.model_management import MyModel
 from Agent.chat_agent import ChatAgent
 from Agent.login_agent import more_speak_login
 from tool.sql_service import sql_tool_pool, pool as mysql_pool
+from utils.inMemoryHistory_redis import get_session_history
+from utils.answer_cache import get_answer, set_answer
+from utils.redis_client import client
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-import redis
 from dotenv import load_dotenv
 
 
 load_dotenv()
-
-# 链接Redis数据库
-client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), password=os.getenv("REDIS_PASSWORD"), protocol=2)
 
 # 创建一个FastAPI应用实例
 app = FastAPI(title="基于FastAPI+langchain+Agent的医疗系统",description="医疗助手",version="0.1.0")
@@ -35,43 +36,161 @@ app.add_middleware(
 )
 
 
+# 只读工具白名单：名单之外的工具一律视为有副作用，不写缓存。
+# 用白名单而非黑名单 —— 将来新增工具时默认走保守分支（发邮件的代价远高于少缓存一条）。
+READ_ONLY_TOOLS = {"sql_tool_pool", "neo4j_tool_pool", "faiss_tool", "amap_tool"}
+
+# 可缓存答案的最小长度，滤掉空回复和"好的"这类寒暄
+MIN_CACHEABLE_LEN = 8
+
+# 每个会话一把锁，串行化同一会话的并发请求。
+# 同时修掉 RedisChatHistory.add_messages 的 read-modify-write 丢消息问题
+# （两个请求同时读改写同一个历史键）。当前是单进程 uvicorn，进程内锁足够。
+_session_locks = defaultdict(asyncio.Lock)
+
+
+def _sse(payload: dict) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _chunk_text(text: str, size: int = 24):
+    """把长文本切片下发，让缓存命中同样有打字机效果（前端路径无需区分两种来源）"""
+    for i in range(0, len(text), size):
+        yield text[i:i + size]
+
+
+def _merged_message(output):
+    """取出 stream/end 事件里的消息对象，兼容 v1 与 v2 的两种形态。
+
+    v1 是 LLMResult 风格的 dict，v2 直接给 AIMessageChunk。
+    """
+    if isinstance(output, dict):
+        try:
+            return output["generations"][0][0]["message"]
+        except (KeyError, IndexError, TypeError):
+            return None
+    return output
+
+
+def _final_answer_from_event(data) -> str | None:
+    """从 on_chain_end 的输出里取最终答案。
+
+    根事件（RunnableWithMessageHistory）的 output 是 AgentExecutor 合并出的
+    AddableDict，形如 {'output': '...', 'messages': [...], 'steps': [...]}，
+    其中 output 正是被写进会话历史的那个字符串 —— 语义上就该缓存它。
+    取不到时返回 None，调用方会回退到会话历史里的最后一条 AIMessage。
+    """
+    out = data.get("output") if isinstance(data, dict) else None
+    if isinstance(out, dict) and isinstance(out.get("output"), str):
+        return out["output"]
+    return None
+
+
+async def _run_turn(question: str, session_id: str):
+    """跑完一轮对话并逐条下发 SSE 数据。"""
+    # 会话历史为空时，答案只取决于问题文本，全局 key 才可靠。
+    # 这里失败不能让整个请求挂掉 —— fail open 到"本轮不用缓存"。
+    try:
+        history_empty = len(get_session_history(session_id).messages) == 0
+    except Exception as e:
+        print("读取会话历史失败，本轮不使用缓存：", e)
+        history_empty = False
+
+    if history_empty:
+        cached = get_answer(question)
+        if cached is not None:
+            # 命中时不会触发 RunnableWithMessageHistory 的历史写入，
+            # 必须手工补上这一轮，否则下一轮模型会以为历史是空的。
+            try:
+                get_session_history(session_id).add_messages([
+                    HumanMessage(content=question),
+                    AIMessage(content=cached),
+                ])
+            except Exception as e:
+                print("缓存命中时补写会话历史失败：", e)
+            for piece in _chunk_text(cached):
+                yield _sse({"token": piece})
+            yield _sse({"done": True})
+            return
+
+    agent = ChatAgent().get_agent()
+    config = {"configurable": {"session_id": session_id}}
+
+    side_effect = False           # 本轮是否调用了有副作用的工具
+    tool_error = False            # 是否有工具抛错
+    last_had_tool_calls = False   # 最后一次模型输出是否还想调工具（= 被强制截断，不是真答案）
+    final_answer = None
+
+    # 使用 LangChain astream_events 逐 token 流式输出（含工具调用状态）
+    async for event in agent.astream_events(
+        {"input": question}, config, version="v2"
+    ):
+        ev = event.get("event")
+        data = event.get("data") or {}
+        if ev == "on_chat_model_stream":
+            token = getattr(data.get("chunk"), "content", None)
+            if isinstance(token, str) and token:
+                # 逐 token 下发，前端可实现打字机效果
+                yield _sse({"token": token})
+        elif ev == "on_tool_start":
+            # 工具调用状态，前端可提示"正在查询..."
+            name = event.get("name")
+            if name:
+                if name not in READ_ONLY_TOOLS:
+                    side_effect = True
+                yield _sse({"tool": name})
+        elif ev == "on_tool_error":
+            tool_error = True
+        elif ev == "on_chat_model_end":
+            msg = _merged_message(data.get("output"))
+            last_had_tool_calls = bool(getattr(msg, "tool_calls", None))
+        elif ev == "on_chain_end":
+            answer = _final_answer_from_event(data)
+            if answer is not None:
+                final_answer = answer
+
+    if final_answer is None and history_empty:
+        # 回退：本轮已被写进会话历史，取最后一条 AI 消息
+        try:
+            for m in reversed(get_session_history(session_id).messages):
+                if isinstance(m, AIMessage):
+                    final_answer = m.content
+                    break
+        except Exception as e:
+            print("回退读取最终答案失败：", e)
+
+    # 不放在 finally 里：客户端中途断开会关闭生成器，
+    # 此时答案可能只攒了一半，缓存它是错的。
+    if (history_empty and not side_effect and not tool_error
+            and not last_had_tool_calls
+            and final_answer and len(final_answer.strip()) >= MIN_CACHEABLE_LEN):
+        set_answer(question, final_answer)
+
+    yield _sse({"done": True})
+
+
 # 定义参数对象
 class ChatArgs(BaseModel):
-    questions: str  = Field(..., description="问题")
-    userId: str = Field(..., description="会话ID列表")
+    questions: str = Field(..., description="问题")
+    sessionId: str = Field(..., description="会话ID，前端用 {userId}:{chatId} 组合而成")
 @app.post("/chat")
 async def chat_stream(args: ChatArgs):
     """SSE 流式聊天端点"""
     async def event_generator():
         try:
-            agent_obj = ChatAgent()
-
-            agent = agent_obj.get_agent()
-            config = {"configurable": {"session_id": args.userId}}
-
-            # 使用 LangChain astream_events 逐 token 流式输出（含工具调用状态）
-            async for event in agent.astream_events(
-                {"input": args.questions}, config, version="v1"
-            ):
-                ev = event.get("event")
-                if ev == "on_chat_model_stream":
-                    chunk = event["data"].get("chunk")
-                    if chunk is not None:
-                        token = getattr(chunk, "content", None)
-                        if isinstance(token, str) and token:
-                            # 逐 token 下发，前端可实现打字机效果
-                            yield f"data: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
-                elif ev == "on_tool_start":
-                    # 工具调用状态，前端可提示"正在查询..."
-                    name = event.get("name")
-                    if name:
-                        yield f"data: {json.dumps({'tool': name}, ensure_ascii=False)}\n\n"
-            # 流结束信号
-            yield f"data: {json.dumps({'done': True})}\n\n"
+            # 同一会话串行执行，避免并发请求互相覆盖 Redis 历史
+            async with _session_locks[args.sessionId]:
+                async for chunk in _run_turn(args.questions, args.sessionId):
+                    yield chunk
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+            yield _sse({"error": str(e)})
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        # 防反向代理缓冲整个流，否则打字机效果失效
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 # 定义一个登录请求参数
 class LoginArgs(BaseModel):

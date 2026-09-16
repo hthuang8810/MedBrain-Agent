@@ -32,11 +32,11 @@ export const speechToText = (formData) =>
  * 流式聊天 — 使用 fetch + ReadableStream 消费 SSE
  * 返回一个异步生成器，每次 yield 一个 token 字符串
  */
-export async function* chatStream(questions, userId) {
+export async function* chatStream(questions, sessionId) {
   const res = await fetch('http://localhost:8000/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions, userId }),
+    body: JSON.stringify({ questions, sessionId }),
   })
 
   if (!res.ok) {
@@ -56,17 +56,20 @@ export async function* chatStream(questions, userId) {
     buffer = lines.pop() // 保留未完成的行
 
     for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6))
-          if (data.done) return
-          if (data.error) throw new Error(data.error)
-          if (data.token) yield { type: 'token', text: data.token }
-          else if (data.tool) yield { type: 'tool', name: data.tool }
-        } catch (e) {
-          // 忽略非 JSON 行
-        }
+      if (!line.startsWith('data: ')) continue
+      // 只把「解析失败」当成非 JSON 行忽略。
+      // 后端下发的 error 事件必须能抛出去 —— 之前 throw 和这个 catch 在同一个
+      // try 里，被下面的 catch 吞掉，服务端报错会静默变成一条空回复。
+      let data
+      try {
+        data = JSON.parse(line.slice(6))
+      } catch {
+        continue
       }
+      if (data.done) return
+      if (data.error) throw new Error(data.error)
+      if (data.token) yield { type: 'token', text: data.token }
+      else if (data.tool) yield { type: 'tool', name: data.tool }
     }
   }
 }

@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, nextTick, onMounted } from 'vue'
+import { reactive, ref, computed, nextTick, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
@@ -80,17 +80,65 @@ import TypingIndicator from '@/components/TypingIndicator.vue'
 import { chatStream, speechToText } from '@/api'
 
 // ---- 对话管理 ----
-const chatList = ref([
-  { id: '1', title: '新对话', messages: [] },
-])
-const activeChatId = ref('1')
+const userId = localStorage.getItem('userId') || 'anonymous'
+// 会话列表按用户隔离存储，避免换账号后看到上一个账号的对话
+const STORAGE_KEY = `chatSessions:${userId}`
+
+function newChatId() {
+  // 用 UUID 而非 Date.now()：后者同一毫秒内连点两次「新建会话」会撞 id
+  return crypto.randomUUID()
+}
+
+function loadSessions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const saved = JSON.parse(raw)
+    if (Array.isArray(saved?.chatList) && saved.chatList.length) return saved
+  } catch {
+    // 存储损坏时当作没有，不能让整页打不开
+  }
+  return null
+}
+
+const savedSessions = loadSessions()
+const chatList = ref(
+  savedSessions ? savedSessions.chatList : [{ id: newChatId(), title: '新对话', messages: [] }]
+)
+// 校验恢复出来的 activeChatId 仍存在于列表中：否则 currentChat 会退化成下面那个
+// 一次性兜底对象，消息 push 进去后再也渲染不出来
+const activeChatId = ref(
+  savedSessions && savedSessions.chatList.some(c => c.id === savedSessions.activeChatId)
+    ? savedSessions.activeChatId
+    : chatList.value[0].id
+)
+
+// 防抖保存：流式回复期间每个 token 都会改动 chatList，
+// 不防抖会变成每 token 写一次 localStorage
+let saveTimer = null
+function saveSessions() {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        chatList: chatList.value,
+        activeChatId: activeChatId.value,
+      }))
+    } catch {
+      // 配额超限等，忽略
+    }
+  }, 300)
+}
+
+watch(chatList, saveSessions, { deep: true })
+watch(activeChatId, saveSessions)
 
 const currentChat = computed(() => {
   return chatList.value.find(c => c.id === activeChatId.value) || { title: '', messages: [] }
 })
 
 function newChat() {
-  const id = Date.now().toString()
+  const id = newChatId()
   chatList.value.push({ id, title: '新对话', messages: [] })
   activeChatId.value = id
 }
@@ -154,9 +202,11 @@ async function sendMessage(text) {
   scrollToBottom()
 
   try {
-    const userId = localStorage.getItem('userId') || 'anonymous'
+    // 会话 ID = 用户 + 对话。之前这里传的是 userId，
+    // 导致一个用户的所有对话共享同一份后端记忆。
+    const sessionId = `${userId}:${currentChat.value.id}`
     // 消费 SSE 流
-    for await (const item of chatStream(text, userId)) {
+    for await (const item of chatStream(text, sessionId)) {
       if (item.type === 'token') {
         aiMsg.content += item.text
       } else if (item.type === 'tool') {
