@@ -27,23 +27,20 @@ Vue.js 前端 (8080) → FastAPI 后端 (8000) → MCP 服务 (8008)
 | 模块 | 说明 |
 | --- | --- |
 | **前端** `frontend/` | Vue 3 + Element Plus + Vite SPA，路由：`/`（登录）、`/register`（注册）、`/chat`（聊天，需鉴权） |
-| **后端** `backend/` | FastAPI 服务，承载三个 LangChain Agent，负责请求路由分发与业务编排 |
+| **后端** `backend/` | FastAPI 服务，承载 LangChain Agent，负责请求分派与业务编排 |
 | **MCP 服务** `mcp-server/` | FastMCP 工具服务，通过 SSE 暴露数据库、邮件、RAG、定位、文档等工具 |
 
-## Agent 路由
+## Agent 编排
 
-后端根据用户输入关键词将请求分发到不同 Agent：
-
-- **ChatAgent**（`chat_agent.py`）：通用医疗问答。工具：SQL、Neo4j、FAISS（RAG）、高德、文档生成。
-- **ChatAgentPatient**（`chat_agent_patient.py`）：患者相关查询（由 "邮箱" 关键词触发）。工具：SQL、邮件。
-- **LoginAgent**（`login_agent.py`）：邮箱验证码的生成与发送。
+- **ChatAgent**（`chat_agent.py`）：`/chat` 聊天入口，通用医疗问答。工具：SQL、Neo4j、FAISS（RAG）、高德、文档生成、邮件发送。由模型依据各工具的描述自主选择调用，不做关键词路由。
+- **LoginAgent**（`login_agent.py`）：`/send_code` 验证码接口专用，负责邮箱验证码的生成与发送。
 
 ## 目录结构
 
 ```
 MedBrain_Agent/
 ├── backend/                    # FastAPI 后端 + LangChain Agents
-│   ├── Agent/                  # 三个智能体（chat_agent / chat_agent_patient / login_agent）
+│   ├── Agent/                  # 智能体（chat_agent / login_agent）
 │   ├── data/                   # 数据初始化脚本（Neo4j 知识图谱、MySQL 建库建表）
 │   ├── model/                  # 模型管理与 VOSK 语音识别
 │   ├── tool/                   # 工具层（SQL / Neo4j / FAISS / 高德 / 邮件 / 文档）

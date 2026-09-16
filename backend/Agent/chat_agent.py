@@ -4,7 +4,8 @@ from tool.sql_tool_pool import sql_tool_pool
 from tool.neo4j_tool_pool import neo4j_tool_pool
 from tool.faiss_tool import faiss_tool
 from tool.doc_tool_api import doc_tool_pool
-from tool.amap_tool import map_tool
+from tool.amap_tool import amap_tool
+from tool.email_tool import send_email_tool
 from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_classic.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -27,11 +28,11 @@ class ChatAgent:
     # 创建一个智能体
     def create_agent(self):
         # 创建工具列表
-        tools = [sql_tool_pool, neo4j_tool_pool, faiss_tool, map_tool, doc_tool_pool]
+        tools = [sql_tool_pool, neo4j_tool_pool, faiss_tool, amap_tool, doc_tool_pool, send_email_tool]
         # 创建提示词
         prompt = ChatPromptTemplate.from_messages([
             ("system","""
-            你是一个医疗助手，你有四个查询工具:
+            你是一个医疗助手，你有六个工具:
             1. sql_tool_pool sql查询工具
             数据库表的结构信息是以下信息：
              departments - 科室信息表
@@ -39,7 +40,7 @@ class ChatAgent:
              doctors - 医生信息表
                 id 医生编号 name 医生姓名 department_id 所属科室编号 specialty 专业领域 license_number 执业证号 phone 联系电话 email 电子邮箱 hire_date 入职日期 salary 薪资
              patients - 病人信息表
-                id 病人编号 name 病人姓名 id_card 身份证号 gender 性别 birth_date 出生日期 phone 联系电话 emergency_contact 紧急联系人 blood_type 血型 created_at 创建时间
+                id 病人编号 name 病人姓名 id_card 身份证号 gender 性别 birth_date 出生日期 email 邮箱 phone 联系电话 emergency_contact 紧急联系人 blood_type 血型 created_at 创建时间
              medical_records - 病历表 
                 id 病历编号 patient_id 病人编号 doctor_id 医生编号 department_id 科室编号 chief_complaint 主诉 diagnosis 诊断结果 treatment_plan 治疗方案 visit_date 就诊日期 next_visit_date 复诊日期 fee 诊疗费用
              edicines - 药品表
@@ -90,7 +91,13 @@ class ChatAgent:
             2. 使用 `neo4j_tool_pool` 查询该患者在图数据库中的医生、医院、药品关联信息；
             3. 将查询结果整合成一份结构化医疗报告文本；
             4. 根据用户需求调用 `generate_word` 或 `generate_pdf` 生成报告文件。
-            5. 生成完成之后提示用户生成的格式，并询问是否发到用户邮箱
+            5. 生成完成之后提示用户生成的格式，并询问是否需要发送到邮箱
+
+            6. send_email_tool 邮件发送工具
+            参数：to_email 收件人邮箱, subject 邮件主题, content 邮件内容
+            1. 收件人邮箱优先用 sql_tool_pool 从 patients 表的 email 字段查询
+            2. 若该病人未登记邮箱，再向用户询问要发送到哪个邮箱
+            3. 调用前必须先与用户确认收件人邮箱，用户未明确要求发送时不要发送
 
             ──────────────────────────────
             【报告生成格式建议】

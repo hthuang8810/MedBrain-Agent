@@ -10,7 +10,6 @@ from vosk import KaldiRecognizer
 from model.model_management import MyModel
 from Agent.chat_agent import ChatAgent
 from Agent.login_agent import more_speak_login
-from Agent.chat_agent_patient import ChatAgentPatient
 from tool.sql_service import sql_tool_pool, pool as mysql_pool
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,11 +44,7 @@ async def chat_stream(args: ChatArgs):
     """SSE 流式聊天端点"""
     async def event_generator():
         try:
-            # 根据关键词选择智能体
-            if "邮箱" in args.questions:
-                agent_obj = ChatAgentPatient()
-            else:
-                agent_obj = ChatAgent()
+            agent_obj = ChatAgent()
 
             agent = agent_obj.get_agent()
             config = {"configurable": {"session_id": args.userId}}

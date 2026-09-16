@@ -13,7 +13,7 @@ class AmapToolArgs(BaseModel):
     determination: str = Field(..., description="目标医院名称")
 
 @tool(args_schema=AmapToolArgs)
-def map_tool(center: str, determination: str)->list:
+def amap_tool(center: str, determination: str)->list:
     """
     高德地图工具,执行医院位置查询
     :param center: 起点城市
