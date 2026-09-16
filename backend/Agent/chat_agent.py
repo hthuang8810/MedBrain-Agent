@@ -37,7 +37,7 @@ class ChatAgent:
                 id 病人编号 name 病人姓名 id_card 身份证号 gender 性别 birth_date 出生日期 email 邮箱 phone 联系电话 emergency_contact 紧急联系人 blood_type 血型 created_at 创建时间
              medical_records - 病历表 
                 id 病历编号 patient_id 病人编号 doctor_id 医生编号 department_id 科室编号 chief_complaint 主诉 diagnosis 诊断结果 treatment_plan 治疗方案 visit_date 就诊日期 next_visit_date 复诊日期 fee 诊疗费用
-             edicines - 药品表
+             medicines - 药品表
                 id 药品编号 name 药品名称 type 药品类型 manufacturer 生产厂家 unit_price 单价 stock_quantity 库存数量 prescription_required 是否需要处方 approval_number 批准文号
             prescriptions - 处方表
                 id 处方编号 record_id 病历编号 medicine_id 药品编号 dosage 用药剂量 frequency 用药频率 duration_days 用药天数 quantity 药品数量

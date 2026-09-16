@@ -14,7 +14,7 @@ from utils.redis_client import client
 
 # 改动 chat_agent.py 的 system prompt 或工具集时递增此版本号，
 # 否则旧 key 下缓存的答案会和新 prompt 的语义混在一起。
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 CACHE_TTL = 3600  # 秒
 _KEY_PREFIX = "chat:cache:"
