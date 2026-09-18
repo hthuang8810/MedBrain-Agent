@@ -5,7 +5,7 @@ OPENAI_API_KEY=***
 # openai api base
 OPENAI_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
 # 词嵌入模型路径
-embedding_model=D:\workspace\model\BAAIbge-large-zh-v1.5
+embedding_model=D:\workspace\model\bge-large-zh-v1.5
 # 语音识别模型路径
 VOSK_MODEL=D:\workspace\model\vosk-model-cn-0.22
 
